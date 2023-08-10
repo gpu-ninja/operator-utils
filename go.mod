@@ -3,8 +3,10 @@ module github.com/gpu-ninja/operator-utils
 go 1.20
 
 require (
+	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
+	github.com/jinzhu/copier v0.3.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.25.0
 	k8s.io/api v0.27.4
@@ -17,7 +19,6 @@ require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
-	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.1 // indirect
