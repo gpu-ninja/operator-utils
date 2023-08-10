@@ -134,3 +134,26 @@ func (ref *LocalSecretReference) Resolve(ctx context.Context, reader client.Read
 
 	return secret.(*corev1.Secret), nil
 }
+
+// LocalConfigMapReference is a reference to a config map in the same namespace.
+// +kubebuilder:object:generate=true
+type LocalConfigMapReference struct {
+	// Name is the name of the config map.
+	Name string `json:"name"`
+}
+
+// Resolve resolves the reference to its underlying config map.
+func (ref *LocalConfigMapReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+	objRef := ObjectReference{
+		Name:       ref.Name,
+		APIVersion: "v1",
+		Kind:       "ConfigMap",
+	}
+
+	configMap, err := objRef.Resolve(ctx, reader, scheme, parent)
+	if err != nil {
+		return nil, err
+	}
+
+	return configMap.(*corev1.ConfigMap), nil
+}
