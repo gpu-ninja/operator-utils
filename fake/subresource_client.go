@@ -47,6 +47,14 @@ func NewSubResourceClient(scheme *runtime.Scheme) *SubResourceClient {
 	}
 }
 
+// Reset clears the contents of the client.
+func (c *SubResourceClient) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.objects = make(map[client.ObjectKey]runtime.Object)
+}
+
 func (c *SubResourceClient) Get(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceGetOption) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
