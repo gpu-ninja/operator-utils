@@ -112,6 +112,28 @@ func (ref *ObjectReference) Resolve(ctx context.Context, reader client.Reader, s
 	return obj, nil
 }
 
+// LocalObjectReference is a reference to a resource in the same namespace.
+// +kubebuilder:object:generate=true
+type LocalObjectReference struct {
+	// Name is the name of the resource.
+	Name string `json:"name,omitempty"`
+	// APIVersion is the API version of the resource.
+	APIVersion string `json:"apiVersion,omitempty"`
+	// Kind is the kind of the resource.
+	Kind string `json:"kind,omitempty"`
+}
+
+// Resolve resolves the reference to its underlying resource.
+func (ref *LocalObjectReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+	objRef := ObjectReference{
+		Name:       ref.Name,
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+	}
+
+	return objRef.Resolve(ctx, reader, scheme, parent)
+}
+
 // LocalSecretReference is a reference to a secret in the same namespace.
 // +kubebuilder:object:generate=true
 type LocalSecretReference struct {
