@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gpu-ninja/operator-utils/retryable"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -34,12 +33,12 @@ import (
 
 type Reference interface {
 	// Resolve resolves the reference to its underlying resource.
-	Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error)
+	Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (obj runtime.Object, ok bool, err error)
 }
 
 type ObjectWithReferences interface {
 	// ResolveReferences resolves all references in the object.
-	ResolveReferences(ctx context.Context, reader client.Reader, scheme *runtime.Scheme) error
+	ResolveReferences(ctx context.Context, reader client.Reader, scheme *runtime.Scheme) (bool, error)
 }
 
 // ObjectReference is a reference to an arbitrary Kubernetes resource.
@@ -56,17 +55,17 @@ type ObjectReference struct {
 }
 
 // Resolve resolves the reference to its underlying resource.
-func (ref *ObjectReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+func (ref *ObjectReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, bool, error) {
 	var u unstructured.Unstructured
 	apiVersion := ref.APIVersion
 	if apiVersion == "" {
 		gvks, _, err := scheme.ObjectKinds(parent)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get object kinds: %w", err)
+			return nil, false, fmt.Errorf("failed to get object kinds: %w", err)
 		}
 
 		if len(gvks) == 0 {
-			return nil, fmt.Errorf("no object kinds found")
+			return nil, false, fmt.Errorf("no object kinds found")
 		}
 
 		apiVersion = gvks[0].GroupVersion().String()
@@ -79,7 +78,7 @@ func (ref *ObjectReference) Resolve(ctx context.Context, reader client.Reader, s
 	if namespace == "" {
 		parentMeta, err := meta.Accessor(parent)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get accessor: %w", err)
+			return nil, false, fmt.Errorf("failed to get accessor: %w", err)
 		}
 
 		namespace = parentMeta.GetNamespace()
@@ -88,28 +87,28 @@ func (ref *ObjectReference) Resolve(ctx context.Context, reader client.Reader, s
 	err := reader.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: namespace}, &u)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, retryable.Retryable(err)
+			return nil, false, nil
 		}
 
-		return nil, fmt.Errorf("failed to resolve reference: %w", err)
+		return nil, false, fmt.Errorf("failed to resolve reference: %w", err)
 	}
 
 	unstructuredBytes, err := u.MarshalJSON()
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal unstructured object: %w", err)
+		return nil, false, fmt.Errorf("failed to marshal unstructured object: %w", err)
 	}
 
 	dec := serializer.NewCodecFactory(scheme).UniversalDeserializer()
 	obj, _, err := dec.Decode(unstructuredBytes, nil, nil)
 	if err != nil {
 		if runtime.IsNotRegisteredError(err) {
-			return &u, nil
+			return &u, true, nil
 		}
 
-		return nil, fmt.Errorf("failed to decode unstructured object: %w", err)
+		return nil, false, fmt.Errorf("failed to decode unstructured object: %w", err)
 	}
 
-	return obj, nil
+	return obj, true, nil
 }
 
 // LocalObjectReference is a reference to a resource in the same namespace.
@@ -124,7 +123,7 @@ type LocalObjectReference struct {
 }
 
 // Resolve resolves the reference to its underlying resource.
-func (ref *LocalObjectReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+func (ref *LocalObjectReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, bool, error) {
 	objRef := ObjectReference{
 		Name:       ref.Name,
 		APIVersion: ref.APIVersion,
@@ -142,19 +141,19 @@ type LocalSecretReference struct {
 }
 
 // Resolve resolves the reference to its underlying secret.
-func (ref *LocalSecretReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+func (ref *LocalSecretReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, bool, error) {
 	objRef := ObjectReference{
 		Name:       ref.Name,
 		APIVersion: "v1",
 		Kind:       "Secret",
 	}
 
-	secret, err := objRef.Resolve(ctx, reader, scheme, parent)
-	if err != nil {
-		return nil, err
+	secret, ok, err := objRef.Resolve(ctx, reader, scheme, parent)
+	if !ok || err != nil {
+		return nil, ok, err
 	}
 
-	return secret.(*corev1.Secret), nil
+	return secret.(*corev1.Secret), true, nil
 }
 
 // LocalConfigMapReference is a reference to a config map in the same namespace.
@@ -165,17 +164,17 @@ type LocalConfigMapReference struct {
 }
 
 // Resolve resolves the reference to its underlying config map.
-func (ref *LocalConfigMapReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, error) {
+func (ref *LocalConfigMapReference) Resolve(ctx context.Context, reader client.Reader, scheme *runtime.Scheme, parent runtime.Object) (runtime.Object, bool, error) {
 	objRef := ObjectReference{
 		Name:       ref.Name,
 		APIVersion: "v1",
 		Kind:       "ConfigMap",
 	}
 
-	configMap, err := objRef.Resolve(ctx, reader, scheme, parent)
-	if err != nil {
-		return nil, err
+	configMap, ok, err := objRef.Resolve(ctx, reader, scheme, parent)
+	if !ok || err != nil {
+		return nil, ok, err
 	}
 
-	return configMap.(*corev1.ConfigMap), nil
+	return configMap.(*corev1.ConfigMap), true, nil
 }

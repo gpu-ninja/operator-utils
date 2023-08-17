@@ -72,8 +72,9 @@ func TestResolveReference(t *testing.T) {
 			Kind:       "MyObject",
 		}
 
-		obj, err := ref.Resolve(ctx, reader, scheme, parent)
+		obj, ok, err := ref.Resolve(ctx, reader, scheme, parent)
 		require.NoError(t, err)
+		assert.True(t, ok)
 
 		assert.IsType(t, &MyObject{}, obj)
 	})
@@ -85,8 +86,9 @@ func TestResolveReference(t *testing.T) {
 			Kind:       "Secret",
 		}
 
-		obj, err := ref.Resolve(ctx, reader, scheme, parent)
+		obj, ok, err := ref.Resolve(ctx, reader, scheme, parent)
 		require.NoError(t, err)
+		assert.True(t, ok)
 
 		assert.IsType(t, &unstructured.Unstructured{}, obj)
 	})
@@ -97,8 +99,9 @@ func TestResolveReference(t *testing.T) {
 			Kind: "MyObject",
 		}
 
-		obj, err := ref.Resolve(ctx, reader, scheme, parent)
+		obj, ok, err := ref.Resolve(ctx, reader, scheme, parent)
 		require.NoError(t, err)
+		assert.True(t, ok)
 
 		assert.IsType(t, &MyObject{}, obj)
 	})
