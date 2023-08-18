@@ -16,8 +16,9 @@
  */
 
 // Package updater provides a way to update Kubernetes resources.
-// Inspired by controllerutil and:
+// Inspired by controllerutil, gardener, and the kubernetes statefulset controller.
 // https://github.com/gardener/gardener/blob/master/docs/development/kubernetes-clients.md
+// https://github.com/kubernetes/kubernetes/blob/ee265c92fec40cd69d1de010b477717e4c142492/pkg/controller/history/controller_history.go#L92
 package updater
 
 import (
@@ -30,46 +31,59 @@ import (
 
 type MutateFunc func() error
 
-func CreateOrUpdate(ctx context.Context, c client.Client, key client.ObjectKey, obj client.Object, f MutateFunc) error {
+// CreateOrUpdateFromTemplate creates or updates the given object using the given template.
+func CreateOrUpdateFromTemplate(ctx context.Context, c client.Client, template client.Object) (client.Object, error) {
+	templateHash := HashObject(template)
+
+	obj, ok := template.DeepCopyObject().(client.Object)
+	if !ok {
+		return nil, fmt.Errorf("expected client object")
+	}
+
+	key := client.ObjectKeyFromObject(obj)
 	if err := c.Get(ctx, key, obj); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get object: %w", err)
+			return nil, fmt.Errorf("failed to get object: %w", err)
 		}
 
-		obj.SetName(key.Name)
-		obj.SetNamespace(key.Namespace)
-
-		if f != nil {
-			if err := f(); err != nil {
-				return fmt.Errorf("failed to mutate object: %w", err)
-			}
+		if err := StoreHash(obj, templateHash); err != nil {
+			return nil, fmt.Errorf("failed to store hash: %w", err)
 		}
 
 		if err := c.Create(ctx, obj); err != nil {
-			return fmt.Errorf("failed to create object: %w", err)
+			return nil, fmt.Errorf("failed to create object: %w", err)
 		}
 
-		return nil
+		if err := c.Get(ctx, key, obj); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get object: %w", err)
+		}
+
+		return obj, nil
 	}
 
-	if f != nil {
-		if err := f(); err != nil {
-			return fmt.Errorf("failed to mutate object: %w", err)
+	existingHash, err := GetHash(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hash from object: %w", err)
+	}
+
+	if existingHash != templateHash {
+		if err := StoreHash(obj, templateHash); err != nil {
+			return nil, fmt.Errorf("failed to store hash: %w", err)
+		}
+
+		if err := c.Update(ctx, obj); err != nil {
+			return nil, fmt.Errorf("failed to update object: %w", err)
+		}
+
+		if err := c.Get(ctx, key, obj); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get object: %w", err)
 		}
 	}
 
-	if err := c.Update(ctx, obj); err != nil {
-		return fmt.Errorf("failed to update object: %w", err)
-	}
-
-	// Get the latest version of the object before returning.
-	if err := c.Get(ctx, key, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get updated object: %w", err)
-	}
-
-	return nil
+	return obj, nil
 }
 
+// UpdateStatus updates the status of the given object using a mutating function.
 func UpdateStatus(ctx context.Context, c client.Client, key client.ObjectKey, obj client.Object, f MutateFunc) error {
 	if err := c.Get(ctx, key, obj); err != nil {
 		return fmt.Errorf("failed to get object: %w", err)
@@ -83,11 +97,6 @@ func UpdateStatus(ctx context.Context, c client.Client, key client.ObjectKey, ob
 
 	if err := c.Status().Update(ctx, obj); err != nil {
 		return fmt.Errorf("failed to update object: %w", err)
-	}
-
-	// Get the latest version of the object before returning.
-	if err := c.Get(ctx, key, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get updated object: %w", err)
 	}
 
 	return nil
