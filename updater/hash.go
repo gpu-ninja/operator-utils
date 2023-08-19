@@ -29,7 +29,7 @@ import (
 
 const (
 	// AnnotationKey is the key used to store the hash of the template object.
-	AnnotationKey = "updater.gpu-ninja.com/template-hash"
+	AnnotationKey = "gpu-ninja.com/template-hash"
 )
 
 func GetHash(obj runtime.Object) (string, error) {
