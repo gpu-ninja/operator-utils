@@ -67,6 +67,8 @@ func CreateOrUpdateFromTemplate(ctx context.Context, c client.Client, template c
 	}
 
 	if existingHash != templateHash {
+		obj = template.DeepCopyObject().(client.Object)
+
 		if err := StoreHash(obj, templateHash); err != nil {
 			return nil, fmt.Errorf("failed to store hash: %w", err)
 		}

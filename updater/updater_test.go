@@ -27,6 +27,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -56,4 +57,15 @@ func TestCreateOrUpdateFromTemplate(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "275e0e96", hash)
+
+	updatedTemplate := template.DeepCopy()
+	updatedTemplate.Spec.Replicas = ptr.To(int32(2))
+
+	obj, err = updater.CreateOrUpdateFromTemplate(ctx, c, updatedTemplate)
+	require.NoError(t, err)
+
+	hash, err = updater.GetHash(obj)
+	require.NoError(t, err)
+
+	assert.Equal(t, "c2f1de77", hash)
 }
