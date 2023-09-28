@@ -178,3 +178,11 @@ func (ref *LocalConfigMapReference) Resolve(ctx context.Context, reader client.R
 
 	return configMap.(*corev1.ConfigMap), true, nil
 }
+
+// LocalKeyedSecretReference is a reference to a secret in the same namespace containing a single keyed value.
+// +kubebuilder:object:generate=true
+type LocalKeyedSecretReference struct {
+	*LocalSecretReference `json:",inline"`
+	// Key is the key of the value in the secret.
+	Key string `json:"key"`
+}
