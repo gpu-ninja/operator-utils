@@ -25,8 +25,8 @@ import (
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+<>?[]{}"
 
-// GeneratePassword generates a secure random password of length n.
-func GeneratePassword(n int) (string, error) {
+// Generate generates a secure random password of length n.
+func Generate(n int) (string, error) {
 	if n <= 0 {
 		return "", fmt.Errorf("invalid password length: %d", n)
 	}

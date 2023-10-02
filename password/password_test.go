@@ -24,13 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGeneratePassword(t *testing.T) {
-	pw, err := password.GeneratePassword(10)
+func TestPasswordGenerate(t *testing.T) {
+	pw, err := password.Generate(10)
 	require.NoError(t, err)
 
 	require.Len(t, pw, 10)
 
-	pw2, err := password.GeneratePassword(10)
+	pw2, err := password.Generate(10)
 	require.NoError(t, err)
 
 	require.Len(t, pw2, 10)
